@@ -1,1 +1,0 @@
-NEEDED: add OverlaySession.swift to project.pbxproj (PBXBuildFile, PBXFileReference, group children, PBXSourcesBuildPhase).

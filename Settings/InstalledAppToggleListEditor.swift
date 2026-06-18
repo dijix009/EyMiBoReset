@@ -17,6 +17,10 @@ struct InstalledAppToggleListEditor: View {
     @State private var showAdvanced = false
     @State private var newId: String = ""
 
+    /// Cached so we don't resolve bundle URLs and load icons on every SwiftUI render.
+    /// Refreshed on appear and whenever the displayed (`allRawText`) list changes.
+    @State private var installedApps: [AppInfo] = []
+
     /// Hide the manual bundle-id entry UI. For normal users, Add App… is enough.
     var showAdvancedSection: Bool = false
 
@@ -29,9 +33,9 @@ struct InstalledAppToggleListEditor: View {
     private var allIds: [String] { UserSettings.parseBundleIdList(allRawText) }
     private var enabledIds: Set<String> { Set(UserSettings.parseBundleIdList(enabledRawText)) }
 
-    private var installedApps: [AppInfo] {
+    private func refreshInstalledApps() {
         let unique = Array(Set(allIds)).sorted()
-        return unique.compactMap { bundleId in
+        installedApps = unique.compactMap { bundleId in
             guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
                 return nil // only show installed apps
             }
@@ -120,6 +124,8 @@ struct InstalledAppToggleListEditor: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .onAppear { refreshInstalledApps() }
+        .onChange(of: allRawText) { _ in refreshInstalledApps() }
     }
 
     // MARK: - Bindings

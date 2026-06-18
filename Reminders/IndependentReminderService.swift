@@ -10,58 +10,13 @@ import AppKit
 @MainActor
 final class IndependentReminderService: NSObject {
     private let popup = ReminderPopupWindowController()
-    enum Kind: CaseIterable {
-        case blink
-        case posture
-        case water
-        case move
-        case stretch
-        case wrist
-        case breathing
-
-        var title: String {
-            switch self {
-            case .blink: return "Blink"
-            case .posture: return "Straighten your back"
-            case .water: return "Drink water"
-            case .move: return "Move"
-            case .stretch: return "Stretch"
-            case .wrist: return "Wrist break"
-            case .breathing: return "Breathe"
-            }
-        }
-
-        var body: String {
-            switch self {
-            case .blink: return "Quick blink check."
-            case .posture: return "Relax your shoulders and sit up straight."
-            case .water: return "Take a few sips of water."
-            case .move: return "Stand up or change position for a minute."
-            case .stretch: return "Quick stretch: neck, shoulders, and back."
-            case .wrist: return "Relax your hands and stretch your wrists."
-            case .breathing: return "Take 3 slow breaths."
-            }
-        }
-
-        var identifier: String {
-            switch self {
-            case .blink: return "blink"
-            case .posture: return "posture"
-            case .water: return "water"
-            case .move: return "move"
-            case .stretch: return "stretch"
-            case .wrist: return "wrist"
-            case .breathing: return "breathing"
-            }
-        }
-    }
 
     private let settings = UserSettings()
     private var snoozeResumeTimer: DispatchSourceTimer?
     private let center = UNUserNotificationCenter.current()
 
-    private var timers: [Kind: DispatchSourceTimer] = [:]
-    private var nextFireAt: [Kind: Date] = [:]
+    private var timers: [Reminder: DispatchSourceTimer] = [:]
+    private var nextFireAt: [Reminder: Date] = [:]
 
     private var isBreakActive = false
 
@@ -80,7 +35,8 @@ final class IndependentReminderService: NSObject {
             object: nil
         )
 
-        requestAuthIfNeeded()
+        // Notification authorization is requested once, centrally, by
+        // EyMiBoResetNotificationService (which is also the UNUserNotificationCenter delegate).
     }
 
     deinit {
@@ -105,7 +61,7 @@ final class IndependentReminderService: NSObject {
             return
         }
 
-        for kind in Kind.allCases {
+        for kind in Reminder.allCases {
             guard isEnabled(kind) else { continue }
 
             let interval = max(60, intervalSeconds(for: kind))
@@ -128,7 +84,7 @@ final class IndependentReminderService: NSObject {
     }
 
     /// Seconds until the next reminder fires (nil if disabled/not scheduled).
-    func secondsUntilNext(_ kind: Kind) -> Int? {
+    func secondsUntilNext(_ kind: Reminder) -> Int? {
         guard isEnabled(kind) else { return nil }
         guard let date = nextFireAt[kind] else { return nil }
         return max(0, Int(date.timeIntervalSinceNow.rounded(.up)))
@@ -185,7 +141,7 @@ final class IndependentReminderService: NSObject {
         }
     }
 
-    private func isEnabled(_ kind: Kind) -> Bool {
+    private func isEnabled(_ kind: Reminder) -> Bool {
         switch kind {
         case .blink: return settings.blinkEnabled
         case .posture: return settings.postureEnabled
@@ -197,7 +153,7 @@ final class IndependentReminderService: NSObject {
         }
     }
 
-    private func intervalSeconds(for kind: Kind) -> Int {
+    private func intervalSeconds(for kind: Reminder) -> Int {
         switch kind {
         case .blink: return settings.blinkIntervalSeconds
         case .posture: return settings.postureIntervalSeconds
@@ -218,15 +174,7 @@ final class IndependentReminderService: NSObject {
         return t
     }
 
-    private func requestAuthIfNeeded() {
-        let center = UNUserNotificationCenter.current()
-        center.getNotificationSettings { settings in
-            guard settings.authorizationStatus == .notDetermined else { return }
-            center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
-        }
-    }
-
-    private func fire(_ kind: Kind) {
+    private func fire(_ kind: Reminder) {
         guard !isBreakActive else { return }
         guard !isSnoozed else { return }
 
@@ -235,16 +183,16 @@ final class IndependentReminderService: NSObject {
         nextFireAt[kind] = Date().addingTimeInterval(TimeInterval(interval))
 
         // On-screen popup (LookAway-ish).
-        popup.show(title: kind.title, subtitle: kind.body)
+        popup.show(title: kind.notificationTitle, subtitle: kind.notificationBody)
 
         // Also send a notification (kept as a fallback / for Notification Center).
         let content = UNMutableNotificationContent()
-        content.title = kind.title
-        content.body = kind.body
+        content.title = kind.notificationTitle
+        content.body = kind.notificationBody
         content.sound = .default
 
         let request = UNNotificationRequest(
-            identifier: "sye." + kind.identifier + "." + UUID().uuidString,
+            identifier: "reminder." + kind.identifier + "." + UUID().uuidString,
             content: content,
             trigger: nil
         )

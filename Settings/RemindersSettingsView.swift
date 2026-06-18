@@ -299,6 +299,14 @@ struct RemindersSettingsView: View {
         .onChange(of: postureIntervalSeconds) { _ in notifyChanged() }
         .onChange(of: waterEnabled) { _ in notifyChanged() }
         .onChange(of: waterIntervalSeconds) { _ in notifyChanged() }
+        .onChange(of: moveEnabled) { _ in notifyChanged() }
+        .onChange(of: moveIntervalSeconds) { _ in notifyChanged() }
+        .onChange(of: stretchEnabled) { _ in notifyChanged() }
+        .onChange(of: stretchIntervalSeconds) { _ in notifyChanged() }
+        .onChange(of: wristEnabled) { _ in notifyChanged() }
+        .onChange(of: wristIntervalSeconds) { _ in notifyChanged() }
+        .onChange(of: breathingEnabled) { _ in notifyChanged() }
+        .onChange(of: breathingIntervalSeconds) { _ in notifyChanged() }
     }
 
     private func notifyChanged() {

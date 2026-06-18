@@ -30,6 +30,7 @@ final class BreakStateMachine {
     }
 
     func start() {
+        notificationService.cancelPreBreak()
         transition(to: .countdownToBreak)
         timerService.startInterval(minutes: settings.intervalMinutes) { [weak self] in
             self?.preBreak()
@@ -40,6 +41,7 @@ final class BreakStateMachine {
     func reset() {
         timerService.invalidate()
         invalidatePreBreakAutoStart()
+        notificationService.cancelPreBreak()
         preBreakPopup.hide()
         overlayController.hideAll()
         breakStartDate = nil
@@ -163,6 +165,9 @@ final class BreakStateMachine {
         // Notification Center fallback.
         notificationService.sendPreBreakNotification(in: countdown, snoozeMinutes: snoozeMinutes) { [weak self] action in
             guard let self else { return }
+            // Ignore late taps once we've already left the pre-break state (e.g. the break
+            // auto-started); acting now would corrupt the state machine.
+            guard self.state == .preBreak else { return }
             self.invalidatePreBreakAutoStart()
 
             // If the user starts the break from Notification Center, also close the on-screen popup.
@@ -182,8 +187,9 @@ final class BreakStateMachine {
     }
 
     private func startBreak() {
-        // Ensure the pre-break popup never lingers if the break starts automatically.
+        // Ensure the pre-break popup/notification never linger if the break starts automatically.
         preBreakPopup.hide()
+        notificationService.cancelPreBreak()
 
         transition(to: .breakActive)
         breakEndDate = Date().addingTimeInterval(TimeInterval(settings.breakDuration))
@@ -219,6 +225,7 @@ final class BreakStateMachine {
     }
 
     func snooze() {
+        notificationService.cancelPreBreak()
         transition(to: .snoozed)
         timerService.startInterval(minutes: max(1, settings.snoozeMinutes)) { [weak self] in
             self?.start()

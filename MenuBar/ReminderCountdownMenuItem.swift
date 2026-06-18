@@ -1,31 +1,9 @@
 import AppKit
 
 final class ReminderCountdownMenuItem: NSMenuItem {
-    enum Kind {
-        case blink
-        case posture
-        case water
-        case move
-        case stretch
-        case wrist
-        case breathing
+    let kind: Reminder
 
-        var label: String {
-            switch self {
-            case .blink: return "Blink"
-            case .posture: return "Straight back"
-            case .water: return "Water"
-            case .move: return "Move"
-            case .stretch: return "Stretch"
-            case .wrist: return "Wrist"
-            case .breathing: return "Breathe"
-            }
-        }
-    }
-
-    let kind: Kind
-
-    init(kind: Kind) {
+    init(kind: Reminder) {
         self.kind = kind
         super.init(title: "", action: nil, keyEquivalent: "")
         isEnabled = false
@@ -43,6 +21,6 @@ final class ReminderCountdownMenuItem: NSMenuItem {
         }
 
         isHidden = false
-        title = "\(kind.label): \(TimeFormat.mmss(secondsRemaining))"
+        title = "\(kind.menuLabel): \(TimeFormat.mmss(secondsRemaining))"
     }
 }
