@@ -16,6 +16,7 @@ enum PreBreakAction {
 final class EyMiBoResetNotificationService: NSObject, UNUserNotificationCenterDelegate {
     private enum IDs {
         static let category = "PRE_BREAK"
+        static let request = "PRE_BREAK_REQUEST"
         static let actionSnooze = "SNOOZE"
         static let actionSkip = "SKIP"
         static let actionStartNow = "START_NOW"
@@ -48,9 +49,21 @@ final class EyMiBoResetNotificationService: NSObject, UNUserNotificationCenterDe
         content.categoryIdentifier = IDs.category
         content.sound = .default
 
+        // Fixed identifier so a re-scheduled notification replaces the previous one and
+        // cancelPreBreak() can reliably remove it.
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(secs), repeats: false)
-        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+        let request = UNNotificationRequest(identifier: IDs.request, content: content, trigger: trigger)
         center.add(request)
+    }
+
+    /// Cancels any pending/delivered pre-break notification and drops its handler.
+    ///
+    /// Called when the app leaves the pre-break state so a stale notification can't fire its
+    /// actions (snooze/skip/start) during an active break and corrupt the state machine.
+    func cancelPreBreak() {
+        pendingHandler = nil
+        center.removePendingNotificationRequests(withIdentifiers: [IDs.request])
+        center.removeDeliveredNotifications(withIdentifiers: [IDs.request])
     }
 
     // MARK: - UNUserNotificationCenterDelegate (completion-handler variants)

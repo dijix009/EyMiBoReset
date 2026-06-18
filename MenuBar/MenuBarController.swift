@@ -9,7 +9,6 @@ final class MenuBarController {
 
     /// Used to restart scheduling after a screen lock/unlock cycle.
     private var wasSchedulingActiveBeforeSystemLock = false
-    private var breakStateBeforeSystemLock: BreakState = .idle
 
     var onBreakActiveChanged: ((Bool) -> Void)?
 
@@ -286,7 +285,6 @@ final class MenuBarController {
     /// Called when macOS locks the screen. We pause/stop *all* timers and hide any UI.
     func handleSystemWillLock() {
         wasSchedulingActiveBeforeSystemLock = stateMachine.isSchedulingActive
-        breakStateBeforeSystemLock = stateMachine.state
 
         // Stop work/break timers and hide any break/pre-break UI.
         stateMachine.reset()
@@ -307,15 +305,9 @@ final class MenuBarController {
             return
         }
 
-        // Reset to the original duration, but preserve *intent*:
-        // - If the user locked mid-break, skip the break on unlock (go back to a fresh work countdown).
-        // - Otherwise restart the normal scheduling countdown from full duration.
-        switch breakStateBeforeSystemLock {
-        case .breakActive, .countdownToResume:
-            stateMachine.start()
-        default:
-            stateMachine.start()
-        }
+        // All timers were reset on lock, so there is no in-progress break to resume.
+        // Restart a fresh scheduling countdown from full duration.
+        stateMachine.start()
 
         refreshUI()
     }

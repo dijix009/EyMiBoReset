@@ -217,13 +217,16 @@ final class UserSettings {
         // Default: meetings/calls ON
         static let pauseDuringMeetings: Bool = true
         /// Enabled meeting apps.
+        ///
+        /// Dedicated video-call apps only. General-purpose browsers (Chrome/Safari) are
+        /// intentionally excluded: they are frontmost for most of the working day, so
+        /// including them by default would suppress breaks almost permanently. Users who
+        /// rely on Google Meet can add their browser explicitly in Smart Pause.
         static let meetingsBundleIds: String = [
             "us.zoom.xos",
             "com.microsoft.teams",
             "com.microsoft.teams2",
-            "com.apple.FaceTime",
-            "com.google.Chrome", // for Google Meet (heuristic)
-            "com.apple.Safari" // for Google Meet (heuristic)
+            "com.apple.FaceTime"
         ].joined(separator: "\n")
         /// Master list of meeting apps shown in UI.
         /// Default: same as enabled list.
@@ -302,34 +305,52 @@ final class UserSettings {
 
     private let defaults = UserDefaults.standard
 
+    // MARK: - Typed accessors
+    //
+    // These are presence-aware: a key that was never written returns its default, while a
+    // key explicitly set to 0 / "" returns that value. This matters for settings where 0 is
+    // a meaningful choice (e.g. `skipAvailableAfterSeconds`, `breakBlurStyle`).
+
+    private func bool(_ key: String, _ fallback: Bool) -> Bool {
+        defaults.object(forKey: key) as? Bool ?? fallback
+    }
+
+    private func int(_ key: String, _ fallback: Int) -> Int {
+        defaults.object(forKey: key) as? Int ?? fallback
+    }
+
+    private func double(_ key: String, _ fallback: Double) -> Double {
+        (defaults.object(forKey: key) as? NSNumber)?.doubleValue ?? fallback
+    }
+
+    private func string(_ key: String, _ fallback: String) -> String {
+        defaults.string(forKey: key) ?? fallback
+    }
+
     // MARK: - General
 
     var statusBarDisplayMode: StatusBarDisplayMode {
-        let raw = defaults.string(forKey: Keys.statusBarDisplayMode) ?? Defaults.statusBarDisplayMode
-        return StatusBarDisplayMode(rawValue: raw) ?? .text
+        StatusBarDisplayMode(rawValue: string(Keys.statusBarDisplayMode, Defaults.statusBarDisplayMode)) ?? .text
     }
 
     var statusBarShowCountdownText: Bool {
-        defaults.object(forKey: Keys.statusBarShowCountdownText) as? Bool ?? Defaults.statusBarShowCountdownText
+        bool(Keys.statusBarShowCountdownText, Defaults.statusBarShowCountdownText)
     }
 
     var reminderPopupPosition: ReminderPopupPosition {
-        let raw = defaults.string(forKey: Keys.reminderPopupPosition) ?? Defaults.reminderPopupPosition
-        return ReminderPopupPosition(rawValue: raw) ?? .topCenter
+        ReminderPopupPosition(rawValue: string(Keys.reminderPopupPosition, Defaults.reminderPopupPosition)) ?? .topCenter
     }
 
     var reminderPopupInteractive: Bool {
-        defaults.object(forKey: Keys.reminderPopupInteractive) as? Bool ?? Defaults.reminderPopupInteractive
+        bool(Keys.reminderPopupInteractive, Defaults.reminderPopupInteractive)
     }
 
     var reminderPopupDurationSeconds: Int {
-        let v = defaults.integer(forKey: Keys.reminderPopupDurationSeconds)
-        return v == 0 ? Defaults.reminderPopupDurationSeconds : v
+        int(Keys.reminderPopupDurationSeconds, Defaults.reminderPopupDurationSeconds)
     }
 
     var reminderPopupSnoozeMinutes: Int {
-        let v = defaults.integer(forKey: Keys.reminderPopupSnoozeMinutes)
-        return v == 0 ? Defaults.reminderPopupSnoozeMinutes : v
+        int(Keys.reminderPopupSnoozeMinutes, Defaults.reminderPopupSnoozeMinutes)
     }
 
     // Stored as epoch seconds to avoid Date encoding.
@@ -355,7 +376,7 @@ final class UserSettings {
     // MARK: - Custom reminder presets
 
     func getCustomReminderPresets() -> [ReminderPreset] {
-        let raw = defaults.string(forKey: Keys.customReminderPresetsJSON) ?? Defaults.customReminderPresetsJSON
+        let raw = string(Keys.customReminderPresetsJSON, Defaults.customReminderPresetsJSON)
         guard let data = raw.data(using: .utf8) else { return [] }
         return (try? JSONDecoder().decode([ReminderPreset].self, from: data)) ?? []
     }
@@ -367,21 +388,21 @@ final class UserSettings {
     }
 
     var intervalMinutes: Int {
-        let v = defaults.integer(forKey: Keys.intervalMinutes)
-        return v == 0 ? Defaults.intervalMinutes : v
+        int(Keys.intervalMinutes, Defaults.intervalMinutes)
     }
 
     var breakDuration: Int {
-        let v = defaults.integer(forKey: Keys.breakDuration)
-        return v == 0 ? Defaults.breakDuration : v
+        int(Keys.breakDuration, Defaults.breakDuration)
     }
 
+    // MARK: - Smart pause
+
     var pauseDuringMeetings: Bool {
-        defaults.object(forKey: Keys.pauseDuringMeetings) as? Bool ?? Defaults.pauseDuringMeetings
+        bool(Keys.pauseDuringMeetings, Defaults.pauseDuringMeetings)
     }
 
     var meetingsBundleIds: String {
-        defaults.string(forKey: Keys.meetingsBundleIds) ?? Defaults.meetingsBundleIds
+        string(Keys.meetingsBundleIds, Defaults.meetingsBundleIds)
     }
 
     /// The UI list of meeting apps (enabled + disabled).
@@ -391,249 +412,119 @@ final class UserSettings {
     }
 
     var pauseDuringScreenRecording: Bool {
-        defaults.object(forKey: Keys.pauseDuringScreenRecording) as? Bool ?? Defaults.pauseDuringScreenRecording
+        bool(Keys.pauseDuringScreenRecording, Defaults.pauseDuringScreenRecording)
     }
 
     var pauseDuringFullscreenGaming: Bool {
-        defaults.object(forKey: Keys.pauseDuringFullscreenGaming) as? Bool ?? Defaults.pauseDuringFullscreenGaming
+        bool(Keys.pauseDuringFullscreenGaming, Defaults.pauseDuringFullscreenGaming)
     }
 
     var gamingRequiresFullscreen: Bool {
-        defaults.object(forKey: Keys.gamingRequiresFullscreen) as? Bool ?? Defaults.gamingRequiresFullscreen
+        bool(Keys.gamingRequiresFullscreen, Defaults.gamingRequiresFullscreen)
     }
 
     var gamingBundleIds: String {
-        defaults.string(forKey: Keys.gamingBundleIds) ?? Defaults.gamingBundleIds
+        string(Keys.gamingBundleIds, Defaults.gamingBundleIds)
     }
 
     var gamingAppsAll: String {
         defaults.string(forKey: Keys.gamingAppsAll) ?? gamingBundleIds
     }
 
-    var gamingBundleIdentifiers: [String] {
-        Self.parseBundleIdList(gamingBundleIds)
-    }
-
-    var gamingAppsAllBundleIdentifiers: [String] {
-        Self.parseBundleIdList(gamingAppsAll)
-    }
-
     var pauseDuringVideoPlayback: Bool {
-        defaults.object(forKey: Keys.pauseDuringVideoPlayback) as? Bool ?? Defaults.pauseDuringVideoPlayback
+        bool(Keys.pauseDuringVideoPlayback, Defaults.pauseDuringVideoPlayback)
     }
 
     var videoRequiresFullscreen: Bool {
-        defaults.object(forKey: Keys.videoRequiresFullscreen) as? Bool ?? Defaults.videoRequiresFullscreen
+        bool(Keys.videoRequiresFullscreen, Defaults.videoRequiresFullscreen)
     }
 
     var videoBundleIds: String {
-        defaults.string(forKey: Keys.videoBundleIds) ?? Defaults.videoBundleIds
+        string(Keys.videoBundleIds, Defaults.videoBundleIds)
     }
 
     var videoAppsAll: String {
         defaults.string(forKey: Keys.videoAppsAll) ?? videoBundleIds
     }
 
-    var videoBundleIdentifiers: [String] {
-        Self.parseBundleIdList(videoBundleIds)
-    }
-
-    var videoAppsAllBundleIdentifiers: [String] {
-        Self.parseBundleIdList(videoAppsAll)
-    }
-
     var pauseWhenFrontmostAppMatches: Bool {
-        defaults.object(forKey: Keys.pauseWhenFrontmostAppMatches) as? Bool ?? Defaults.pauseWhenFrontmostAppMatches
+        bool(Keys.pauseWhenFrontmostAppMatches, Defaults.pauseWhenFrontmostAppMatches)
     }
 
     var pausedBundleIds: String {
-        defaults.string(forKey: Keys.pausedBundleIds) ?? Defaults.pausedBundleIds
+        string(Keys.pausedBundleIds, Defaults.pausedBundleIds)
     }
 
     var pausedAppsAll: String {
         defaults.string(forKey: Keys.pausedAppsAll) ?? pausedBundleIds
     }
 
-    var pausedBundleIdentifiers: [String] {
-        Self.parseBundleIdList(pausedBundleIds)
-    }
+    // MARK: - Smart pause: parsed bundle-id lists
 
-    var pausedAppsAllBundleIdentifiers: [String] {
-        Self.parseBundleIdList(pausedAppsAll)
-    }
+    var meetingsBundleIdentifiers: [String] { Self.parseBundleIdList(meetingsBundleIds) }
+    var meetingsAppsAllBundleIdentifiers: [String] { Self.parseBundleIdList(meetingsAppsAll) }
 
-    var meetingsBundleIdentifiers: [String] {
-        Self.parseBundleIdList(meetingsBundleIds)
-    }
+    var gamingBundleIdentifiers: [String] { Self.parseBundleIdList(gamingBundleIds) }
+    var gamingAppsAllBundleIdentifiers: [String] { Self.parseBundleIdList(gamingAppsAll) }
 
-    var meetingsAppsAllBundleIdentifiers: [String] {
-        Self.parseBundleIdList(meetingsAppsAll)
-    }
+    var videoBundleIdentifiers: [String] { Self.parseBundleIdList(videoBundleIds) }
+    var videoAppsAllBundleIdentifiers: [String] { Self.parseBundleIdList(videoAppsAll) }
+
+    var pausedBundleIdentifiers: [String] { Self.parseBundleIdList(pausedBundleIds) }
+    var pausedAppsAllBundleIdentifiers: [String] { Self.parseBundleIdList(pausedAppsAll) }
 
     // MARK: - Independent reminders
 
-    var blinkEnabled: Bool {
-        defaults.object(forKey: Keys.blinkEnabled) as? Bool ?? Defaults.blinkEnabled
-    }
+    var blinkEnabled: Bool { bool(Keys.blinkEnabled, Defaults.blinkEnabled) }
+    var blinkIntervalSeconds: Int { int(Keys.blinkIntervalSeconds, Defaults.blinkIntervalSeconds) }
 
-    var blinkIntervalSeconds: Int {
-        let v = defaults.integer(forKey: Keys.blinkIntervalSeconds)
-        return v == 0 ? Defaults.blinkIntervalSeconds : v
-    }
+    var postureEnabled: Bool { bool(Keys.postureEnabled, Defaults.postureEnabled) }
+    var postureIntervalSeconds: Int { int(Keys.postureIntervalSeconds, Defaults.postureIntervalSeconds) }
 
-    var postureEnabled: Bool {
-        defaults.object(forKey: Keys.postureEnabled) as? Bool ?? Defaults.postureEnabled
-    }
+    var waterEnabled: Bool { bool(Keys.waterEnabled, Defaults.waterEnabled) }
+    var waterIntervalSeconds: Int { int(Keys.waterIntervalSeconds, Defaults.waterIntervalSeconds) }
 
-    var postureIntervalSeconds: Int {
-        let v = defaults.integer(forKey: Keys.postureIntervalSeconds)
-        return v == 0 ? Defaults.postureIntervalSeconds : v
-    }
+    var moveEnabled: Bool { bool(Keys.moveEnabled, Defaults.moveEnabled) }
+    var moveIntervalSeconds: Int { int(Keys.moveIntervalSeconds, Defaults.moveIntervalSeconds) }
 
-    var waterEnabled: Bool {
-        defaults.object(forKey: Keys.waterEnabled) as? Bool ?? Defaults.waterEnabled
-    }
+    var stretchEnabled: Bool { bool(Keys.stretchEnabled, Defaults.stretchEnabled) }
+    var stretchIntervalSeconds: Int { int(Keys.stretchIntervalSeconds, Defaults.stretchIntervalSeconds) }
 
-    var waterIntervalSeconds: Int {
-        let v = defaults.integer(forKey: Keys.waterIntervalSeconds)
-        return v == 0 ? Defaults.waterIntervalSeconds : v
-    }
+    var wristEnabled: Bool { bool(Keys.wristEnabled, Defaults.wristEnabled) }
+    var wristIntervalSeconds: Int { int(Keys.wristIntervalSeconds, Defaults.wristIntervalSeconds) }
 
-    var moveEnabled: Bool {
-        defaults.object(forKey: Keys.moveEnabled) as? Bool ?? Defaults.moveEnabled
-    }
-
-    var moveIntervalSeconds: Int {
-        let v = defaults.integer(forKey: Keys.moveIntervalSeconds)
-        return v == 0 ? Defaults.moveIntervalSeconds : v
-    }
-
-    var stretchEnabled: Bool {
-        defaults.object(forKey: Keys.stretchEnabled) as? Bool ?? Defaults.stretchEnabled
-    }
-
-    var stretchIntervalSeconds: Int {
-        let v = defaults.integer(forKey: Keys.stretchIntervalSeconds)
-        return v == 0 ? Defaults.stretchIntervalSeconds : v
-    }
-
-    var wristEnabled: Bool {
-        defaults.object(forKey: Keys.wristEnabled) as? Bool ?? Defaults.wristEnabled
-    }
-
-    var wristIntervalSeconds: Int {
-        let v = defaults.integer(forKey: Keys.wristIntervalSeconds)
-        return v == 0 ? Defaults.wristIntervalSeconds : v
-    }
-
-    var breathingEnabled: Bool {
-        defaults.object(forKey: Keys.breathingEnabled) as? Bool ?? Defaults.breathingEnabled
-    }
-
-    var breathingIntervalSeconds: Int {
-        let v = defaults.integer(forKey: Keys.breathingIntervalSeconds)
-        return v == 0 ? Defaults.breathingIntervalSeconds : v
-    }
+    var breathingEnabled: Bool { bool(Keys.breathingEnabled, Defaults.breathingEnabled) }
+    var breathingIntervalSeconds: Int { int(Keys.breathingIntervalSeconds, Defaults.breathingIntervalSeconds) }
 
     // MARK: - Menu bar countdown visibility
 
-    var showBlinkCountdownInMenu: Bool {
-        defaults.object(forKey: Keys.showBlinkCountdownInMenu) as? Bool ?? Defaults.showBlinkCountdownInMenu
-    }
-
-    var showPostureCountdownInMenu: Bool {
-        defaults.object(forKey: Keys.showPostureCountdownInMenu) as? Bool ?? Defaults.showPostureCountdownInMenu
-    }
-
-    var showWaterCountdownInMenu: Bool {
-        defaults.object(forKey: Keys.showWaterCountdownInMenu) as? Bool ?? Defaults.showWaterCountdownInMenu
-    }
-
-    var showMoveCountdownInMenu: Bool {
-        defaults.object(forKey: Keys.showMoveCountdownInMenu) as? Bool ?? Defaults.showMoveCountdownInMenu
-    }
-
-    var showStretchCountdownInMenu: Bool {
-        defaults.object(forKey: Keys.showStretchCountdownInMenu) as? Bool ?? Defaults.showStretchCountdownInMenu
-    }
-
-    var showWristCountdownInMenu: Bool {
-        defaults.object(forKey: Keys.showWristCountdownInMenu) as? Bool ?? Defaults.showWristCountdownInMenu
-    }
-
-    var showBreathingCountdownInMenu: Bool {
-        defaults.object(forKey: Keys.showBreathingCountdownInMenu) as? Bool ?? Defaults.showBreathingCountdownInMenu
-    }
+    var showBlinkCountdownInMenu: Bool { bool(Keys.showBlinkCountdownInMenu, Defaults.showBlinkCountdownInMenu) }
+    var showPostureCountdownInMenu: Bool { bool(Keys.showPostureCountdownInMenu, Defaults.showPostureCountdownInMenu) }
+    var showWaterCountdownInMenu: Bool { bool(Keys.showWaterCountdownInMenu, Defaults.showWaterCountdownInMenu) }
+    var showMoveCountdownInMenu: Bool { bool(Keys.showMoveCountdownInMenu, Defaults.showMoveCountdownInMenu) }
+    var showStretchCountdownInMenu: Bool { bool(Keys.showStretchCountdownInMenu, Defaults.showStretchCountdownInMenu) }
+    var showWristCountdownInMenu: Bool { bool(Keys.showWristCountdownInMenu, Defaults.showWristCountdownInMenu) }
+    var showBreathingCountdownInMenu: Bool { bool(Keys.showBreathingCountdownInMenu, Defaults.showBreathingCountdownInMenu) }
 
     // MARK: - Break experience
 
-    var preBreakCountdownSeconds: Int {
-        let v = defaults.integer(forKey: Keys.preBreakCountdownSeconds)
-        return v == 0 ? Defaults.preBreakCountdownSeconds : v
-    }
+    var preBreakCountdownSeconds: Int { int(Keys.preBreakCountdownSeconds, Defaults.preBreakCountdownSeconds) }
+    var snoozeMinutes: Int { int(Keys.snoozeMinutes, Defaults.snoozeMinutes) }
+    var allowSkipBreak: Bool { bool(Keys.allowSkipBreak, Defaults.allowSkipBreak) }
+    var skipAvailableAfterSeconds: Int { int(Keys.skipAvailableAfterSeconds, Defaults.skipAvailableAfterSeconds) }
 
-    var snoozeMinutes: Int {
-        let v = defaults.integer(forKey: Keys.snoozeMinutes)
-        return v == 0 ? Defaults.snoozeMinutes : v
-    }
+    var breakMessageTitle: String { string(Keys.breakMessageTitle, Defaults.breakMessageTitle) }
+    var breakMessageSubtitle: String { string(Keys.breakMessageSubtitle, Defaults.breakMessageSubtitle) }
+    var breakDimOpacity: Double { double(Keys.breakDimOpacity, Defaults.breakDimOpacity) }
+    var breakBlurStyle: Int { int(Keys.breakBlurStyle, Defaults.breakBlurStyle) }
+    var showBreakOnAllScreens: Bool { bool(Keys.showBreakOnAllScreens, Defaults.showBreakOnAllScreens) }
 
-    var allowSkipBreak: Bool {
-        defaults.object(forKey: Keys.allowSkipBreak) as? Bool ?? Defaults.allowSkipBreak
-    }
+    var breakSoundStartEnabled: Bool { bool(Keys.breakSoundStartEnabled, Defaults.breakSoundStartEnabled) }
+    var breakSoundEndEnabled: Bool { bool(Keys.breakSoundEndEnabled, Defaults.breakSoundEndEnabled) }
+    var breakSoundName: String { string(Keys.breakSoundName, Defaults.breakSoundName) }
+    var breakSoundVolume: Double { double(Keys.breakSoundVolume, Defaults.breakSoundVolume) }
 
-    var skipAvailableAfterSeconds: Int {
-        // 0 is valid, so check presence.
-        guard defaults.object(forKey: Keys.skipAvailableAfterSeconds) != nil else {
-            return Defaults.skipAvailableAfterSeconds
-        }
-        return defaults.integer(forKey: Keys.skipAvailableAfterSeconds)
-    }
-
-    var breakMessageTitle: String {
-        defaults.string(forKey: Keys.breakMessageTitle) ?? Defaults.breakMessageTitle
-    }
-
-    var breakMessageSubtitle: String {
-        defaults.string(forKey: Keys.breakMessageSubtitle) ?? Defaults.breakMessageSubtitle
-    }
-
-    var breakDimOpacity: Double {
-        if let n = defaults.object(forKey: Keys.breakDimOpacity) as? NSNumber {
-            return n.doubleValue
-        }
-        return Defaults.breakDimOpacity
-    }
-
-    var breakBlurStyle: Int {
-        // 0 is a valid value ("None"), so we must check presence.
-        guard defaults.object(forKey: Keys.breakBlurStyle) != nil else {
-            return Defaults.breakBlurStyle
-        }
-        return defaults.integer(forKey: Keys.breakBlurStyle)
-    }
-
-    var showBreakOnAllScreens: Bool {
-        defaults.object(forKey: Keys.showBreakOnAllScreens) as? Bool ?? Defaults.showBreakOnAllScreens
-    }
-
-    var breakSoundStartEnabled: Bool {
-        defaults.object(forKey: Keys.breakSoundStartEnabled) as? Bool ?? Defaults.breakSoundStartEnabled
-    }
-
-    var breakSoundEndEnabled: Bool {
-        defaults.object(forKey: Keys.breakSoundEndEnabled) as? Bool ?? Defaults.breakSoundEndEnabled
-    }
-
-    var breakSoundName: String {
-        defaults.string(forKey: Keys.breakSoundName) ?? Defaults.breakSoundName
-    }
-
-    var breakSoundVolume: Double {
-        if let n = defaults.object(forKey: Keys.breakSoundVolume) as? NSNumber {
-            return n.doubleValue
-        }
-        return Defaults.breakSoundVolume
-    }
+    // MARK: - Parsing
 
     static func parseBundleIdList(_ raw: String) -> [String] {
         raw
