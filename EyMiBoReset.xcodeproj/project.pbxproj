@@ -308,7 +308,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dj.EyMiBoReset;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dijix009.EyMiBoReset;
 				PRODUCT_NAME = EyMiBoReset;
 				SWIFT_VERSION = 6.0;
 			};
@@ -332,7 +332,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dj.EyMiBoReset;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dijix009.EyMiBoReset;
 				PRODUCT_NAME = EyMiBoReset;
 				SWIFT_VERSION = 6.0;
 			};

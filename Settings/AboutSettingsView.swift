@@ -23,7 +23,7 @@ struct AboutSettingsView: View {
                 Text("Menu bar: EMB")
                     .foregroundStyle(.secondary)
 
-                Text("Bundle: com.dj.EyMiBoReset")
+                Text("Bundle: com.dijix009.EyMiBoReset")
                     .foregroundStyle(.secondary)
             } header: {
                 Text("About")
