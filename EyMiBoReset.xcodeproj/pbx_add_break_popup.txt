@@ -1,0 +1,1 @@
+Temporary note: need to add Break/PreBreakPopup*.swift and Utils/SoundPlayer.swift + Settings/BreakSoundSettingsSection.swift to Xcode project sources.
